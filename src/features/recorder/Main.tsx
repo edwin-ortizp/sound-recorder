@@ -21,32 +21,28 @@ const AudioRecorder: React.FC = () => {
   } = useAudioRecorder();
 
   return (
-    <div className="min-h-screen bg-slate-50 p-8">
-      <div className="container mx-auto py-8">
-        <Card className="bg-white shadow-xl">
-          <CardContent className="p-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <Recorder
-                micActive={micActive}
-                recording={recording}
-                volume={volume}
-                devices={devices}
-                selectedDeviceId={selectedDeviceId}
-                onDeviceSelect={setSelectedDeviceId}
-                onActivateMic={activateMic}
-                onDeactivateMic={deactivateMic}
-                onStartRecording={startRecording}
-                onStopRecording={stopRecording}
-              />
-              <RecordingsList
-                recordings={recordings}
-                onDelete={deleteRecording}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    <Card className="bg-white shadow-xl">
+      <CardContent className="p-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <Recorder
+            micActive={micActive}
+            recording={recording}
+            volume={volume}
+            devices={devices}
+            selectedDeviceId={selectedDeviceId}
+            onDeviceSelect={setSelectedDeviceId}
+            onActivateMic={activateMic}
+            onDeactivateMic={deactivateMic}
+            onStartRecording={startRecording}
+            onStopRecording={stopRecording}
+          />
+          <RecordingsList
+            recordings={recordings}
+            onDelete={deleteRecording}
+          />
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
