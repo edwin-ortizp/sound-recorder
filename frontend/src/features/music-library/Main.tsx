@@ -10,11 +10,12 @@ import type { MusicFile } from './types';
 const MusicLibrary: React.FC = () => {
   const {
     isSupported,
-    directoryHandle,
+    directoryPath,
     files,
     scanning,
     scanProgress,
-    openDirectory,
+    error,
+    setDirectory,
     scanLibrary,
     updateFileMetadata,
   } = useMusicLibrary();
@@ -22,26 +23,17 @@ const MusicLibrary: React.FC = () => {
   const { stats } = useFileNaming(files);
   const [selectedFile, setSelectedFile] = useState<MusicFile | null>(null);
 
-  const handleOpenDirectory = async () => {
-    const success = await openDirectory();
-    if (success) {
-      // Auto-scan after opening directory
-      setTimeout(() => {
-        scanLibrary();
-      }, 500);
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <LibraryScanner
             isSupported={isSupported}
-            directoryName={directoryHandle?.name || null}
+            directoryPath={directoryPath}
             scanning={scanning}
             scanProgress={scanProgress}
-            onOpenDirectory={handleOpenDirectory}
+            error={error}
+            onSetDirectory={setDirectory}
             onScanLibrary={scanLibrary}
           />
         </div>
