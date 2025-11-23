@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Mic, MicOff, Radio, Square, Volume2 } from "lucide-react";
 
 interface RecorderProps {
@@ -31,7 +32,8 @@ export const Recorder: React.FC<RecorderProps> = ({
   onStopRecording,
 }) => {
   return (
-    <Card className="bg-card h-full">
+    <TooltipProvider>
+      <Card className="bg-card h-full">
       <CardHeader className="pb-8">
         <CardTitle className="flex items-center gap-3 text-2xl">
           <Radio className="h-6 w-6 text-red-500" />
@@ -79,49 +81,64 @@ export const Recorder: React.FC<RecorderProps> = ({
 
         {/* Controles principales */}
         <div className="space-y-6 pt-4">
-          <Button 
-            onClick={micActive ? onDeactivateMic : onActivateMic}
-            variant={micActive ? "destructive" : "default"}
-            className="w-full py-8 text-lg flex items-center justify-center gap-3"
-            size="lg"
-          >
-            {micActive ? (
-              <>
-                <MicOff className="h-5 w-5" />
-                Desactivar Micrófono
-              </>
-            ) : (
-              <>
-                <Mic className="h-5 w-5" />
-                Activar Micrófono
-              </>
-            )}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={micActive ? onDeactivateMic : onActivateMic}
+                variant={micActive ? "destructive" : "default"}
+                className="w-full py-8 text-lg flex items-center justify-center gap-3"
+                size="lg"
+              >
+                {micActive ? (
+                  <>
+                    <MicOff className="h-5 w-5" />
+                    Desactivar Micrófono
+                  </>
+                ) : (
+                  <>
+                    <Mic className="h-5 w-5" />
+                    Activar Micrófono
+                  </>
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{micActive ? 'Detener la captura de audio del micrófono' : 'Iniciar la captura de audio del micrófono seleccionado'}</p>
+            </TooltipContent>
+          </Tooltip>
 
           {micActive && (
-            <Button
-              onClick={recording ? onStopRecording : onStartRecording}
-              variant={recording ? "destructive" : "default"}
-              className={`w-full py-8 text-lg flex items-center justify-center gap-3 ${
-                recording ? 'animate-pulse' : ''
-              }`}
-              size="lg"
-            >
-              {recording ? (
-                <>
-                  <Square className="h-5 w-5" />
-                  Detener Grabación
-                </>
-              ) : (
-                <>
-                  <Radio className="h-5 w-5" />
-                  Iniciar Grabación
-                </>
-              )}
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={recording ? onStopRecording : onStartRecording}
+                  variant={recording ? "destructive" : "default"}
+                  className={`w-full py-8 text-lg flex items-center justify-center gap-3 ${
+                    recording ? 'animate-pulse' : ''
+                  }`}
+                  size="lg"
+                >
+                  {recording ? (
+                    <>
+                      <Square className="h-5 w-5" />
+                      Detener Grabación
+                    </>
+                  ) : (
+                    <>
+                      <Radio className="h-5 w-5" />
+                      Iniciar Grabación
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{recording ? 'Finalizar y guardar la grabación actual' : 'Comenzar a grabar el audio capturado'}</p>
+              </TooltipContent>
+            </Tooltip>
           )}
         </div>
       </CardContent>
-    </Card>
+      </Card>
+    </TooltipProvider>
   );
 };

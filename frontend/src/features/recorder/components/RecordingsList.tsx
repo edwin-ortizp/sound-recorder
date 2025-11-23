@@ -2,6 +2,7 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Download, Trash2, Radio, Volume2 } from "lucide-react";
 import type { AudioRecording } from '../hooks/useAudioRecorder';
 
@@ -15,7 +16,8 @@ export const RecordingsList: React.FC<RecordingsListProps> = ({
   onDelete,
 }) => {
   return (
-    <Card className="h-full">
+    <TooltipProvider>
+      <Card className="h-full">
       <CardHeader className="pb-8">
         <CardTitle className="flex items-center gap-3 text-2xl">
           <Volume2 className="h-6 w-6" />
@@ -41,27 +43,41 @@ export const RecordingsList: React.FC<RecordingsListProps> = ({
                   {recording.name}
                 </h3>
                 <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    asChild
-                  >
-                    <a 
-                      href={recording.url} 
-                      download={`${recording.name}.webm`}
-                      className="hover:text-primary p-2"
-                    >
-                      <Download className="h-5 w-5" />
-                    </a>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    onClick={() => onDelete(recording.id)}
-                    className="hover:text-destructive p-2"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        asChild
+                      >
+                        <a
+                          href={recording.url}
+                          download={`${recording.name}.webm`}
+                          className="hover:text-primary p-2"
+                        >
+                          <Download className="h-5 w-5" />
+                        </a>
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Descargar grabación</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={() => onDelete(recording.id)}
+                        className="hover:text-destructive p-2"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Eliminar grabación</p>
+                    </TooltipContent>
+                  </Tooltip>
                 </div>
               </div>
               <audio 
@@ -76,6 +92,7 @@ export const RecordingsList: React.FC<RecordingsListProps> = ({
           ))
         )}
       </CardContent>
-    </Card>
+      </Card>
+    </TooltipProvider>
   );
 };
