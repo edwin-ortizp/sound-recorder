@@ -9,6 +9,15 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       'src': path.resolve(__dirname, './src'),
+      'jsmediatags': 'jsmediatags/dist/jsmediatags.min.js',
+    },
+  },
+  optimizeDeps: {
+    include: ['jsmediatags'],
+  },
+  build: {
+    commonjsOptions: {
+      include: [/jsmediatags/, /node_modules/],
     },
   }
 })
