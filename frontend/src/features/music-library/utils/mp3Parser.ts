@@ -1,4 +1,4 @@
-import { parseBlob } from 'music-metadata-browser';
+import { parseBlob } from 'music-metadata';
 import type { MusicMetadata } from '../types';
 
 export const parseMP3Metadata = async (file: File): Promise<MusicMetadata> => {
