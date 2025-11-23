@@ -28,7 +28,10 @@ export const useAudioRecorder = () => {
     navigator.mediaDevices
       .enumerateDevices()
       .then((devs) => {
-        const audioInputs = devs.filter((dev) => dev.kind === 'audioinput');
+        // Filter devices to only include audioinput with non-empty deviceId
+        const audioInputs = devs.filter(
+          (dev) => dev.kind === 'audioinput' && dev.deviceId !== ''
+        );
         setDevices(audioInputs);
         if (audioInputs.length > 0 && !selectedDeviceId) {
           setSelectedDeviceId(audioInputs[0].deviceId);
