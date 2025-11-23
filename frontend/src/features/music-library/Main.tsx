@@ -7,6 +7,7 @@ import { MusicFilesList } from './components/MusicFilesList';
 import { MetadataEditor } from './components/MetadataEditor';
 import { BatchOperations } from './components/BatchOperations';
 import { ExportTools } from './components/ExportTools';
+import { DuplicateDetector } from './components/DuplicateDetector';
 import { Button } from '@/components/ui/button';
 import type { MusicFile } from './types';
 
@@ -77,6 +78,13 @@ const MusicLibrary: React.FC = () => {
           <NamingIssues stats={stats} />
         </div>
       </div>
+
+      {files.length > 0 && directoryPath && (
+        <DuplicateDetector
+          allFiles={files.map(f => f.path)}
+          rootDirectory={directoryPath}
+        />
+      )}
 
       {files.length > 0 && (
         <div className="flex justify-end">

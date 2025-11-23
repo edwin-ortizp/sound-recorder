@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict
 import os
 
-from services import scanner, metadata, naming, export, batch, quality, organization
+from services import scanner, metadata, naming, export, batch, quality, organization, duplicates
 from services.artwork import artwork_service
 from services.lyrics import lyrics_service
 
@@ -98,6 +98,17 @@ class OrganizeRequest(BaseModel):
     pattern: str = "{artist}/{album}/{filename}"
     copy_mode: bool = True
     create_backup: bool = True
+
+
+class DetectDuplicatesRequest(BaseModel):
+    files: List[str]
+    root_directory: str
+
+
+class MoveDuplicatesRequest(BaseModel):
+    duplicates: List[Dict]
+    root_directory: str
+    trash_folder_name: str = "Trash"
 
 
 # ============================================================================
@@ -526,6 +537,48 @@ async def organize_library(request: OrganizeRequest):
             request.create_backup
         )
         return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============================================================================
+# Duplicate Detection
+# ============================================================================
+
+@app.post("/api/duplicates/detect")
+async def detect_duplicates_endpoint(request: DetectDuplicatesRequest):
+    """
+    Detect duplicate files between root directory and subdirectories.
+    Files in subdirectories are considered organized (good).
+    Files in root are candidates for cleanup.
+    """
+    try:
+        results = duplicates.detect_duplicates(
+            request.files,
+            request.root_directory
+        )
+        return results
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/duplicates/move-to-trash")
+async def move_duplicates_to_trash_endpoint(request: MoveDuplicatesRequest):
+    """
+    Move duplicate files from root directory to Trash folder and generate report.
+    """
+    try:
+        success, message, report_data = duplicates.move_duplicates_to_trash(
+            request.duplicates,
+            request.root_directory,
+            request.trash_folder_name
+        )
+
+        return {
+            "success": success,
+            "message": message,
+            "report": report_data
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

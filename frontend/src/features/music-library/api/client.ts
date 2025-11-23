@@ -633,3 +633,80 @@ export const organizeLibrary = async (
 
   return response.json();
 };
+
+// ============================================================================
+// Duplicate Detection API
+// ============================================================================
+
+/**
+ * Detect duplicate files between root directory and subdirectories
+ */
+export const detectDuplicates = async (
+  files: string[],
+  rootDirectory: string
+): Promise<{
+  duplicates: any[];
+  total_duplicates: number;
+  root_files_count: number;
+  organized_files_count: number;
+  files_without_metadata: any[];
+  files_without_metadata_count: number;
+}> => {
+  const response = await fetch(`${API_BASE_URL}/api/duplicates/detect`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      files,
+      root_directory: rootDirectory,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to detect duplicates');
+  }
+
+  return response.json();
+};
+
+/**
+ * Move duplicate files to Trash folder and generate report
+ */
+export const moveDuplicatesToTrash = async (
+  duplicates: any[],
+  rootDirectory: string,
+  trashFolderName: string = 'Trash'
+): Promise<{
+  success: boolean;
+  message: string;
+  report: {
+    timestamp: string;
+    root_directory: string;
+    trash_folder: string;
+    total_moved: number;
+    total_failed: number;
+    moved_files: any[];
+    failed_files: any[];
+  };
+}> => {
+  const response = await fetch(`${API_BASE_URL}/api/duplicates/move-to-trash`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      duplicates,
+      root_directory: rootDirectory,
+      trash_folder_name: trashFolderName,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to move duplicates to trash');
+  }
+
+  return response.json();
+};
