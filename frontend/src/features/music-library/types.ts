@@ -39,3 +39,44 @@ export interface LibraryStats {
   filesWithoutMetadata: number;
   duplicates: number;
 }
+
+export interface DuplicateFile {
+  path: string;
+  filename: string;
+  metadata: MusicMetadata;
+}
+
+export interface DuplicateMatch {
+  root_file: DuplicateFile;
+  organized_matches: DuplicateFile[];
+  fingerprint: string;
+}
+
+export interface DuplicateDetectionResult {
+  duplicates: DuplicateMatch[];
+  total_duplicates: number;
+  root_files_count: number;
+  organized_files_count: number;
+  files_without_metadata: DuplicateFile[];
+  files_without_metadata_count: number;
+}
+
+export interface DuplicateCleanupReport {
+  timestamp: string;
+  root_directory: string;
+  trash_folder: string;
+  total_moved: number;
+  total_failed: number;
+  moved_files: Array<{
+    original_path: string;
+    trash_path: string;
+    filename: string;
+    metadata: MusicMetadata;
+    matched_with: string[];
+  }>;
+  failed_files: Array<{
+    path: string;
+    filename: string;
+    error: string;
+  }>;
+}
