@@ -30,6 +30,44 @@ export const MusicFilesList: React.FC<MusicFilesListProps> = ({
   const [filterGenre, setFilterGenre] = useState('');
   const [filterIssueType, setFilterIssueType] = useState('all');
 
+  // Get unique artists and genres for filter dropdowns (must be before early return)
+  const uniqueArtists = useMemo(() => {
+    const artists = files
+      .map(f => f.metadata.artist)
+      .filter((a): a is string => Boolean(a));
+    return Array.from(new Set(artists)).sort();
+  }, [files]);
+
+  const uniqueGenres = useMemo(() => {
+    const genres = files
+      .map(f => f.metadata.genre)
+      .filter((g): g is string => Boolean(g));
+    return Array.from(new Set(genres)).sort();
+  }, [files]);
+
+  // Filter files based on current filter settings (must be before early return)
+  const filteredFiles = useMemo(() => {
+    return files.filter(file => {
+      // Filter by issues
+      if (filterIssuesOnly && file.issues.length === 0) return false;
+
+      // Filter by issue type
+      if (filterIssueType !== 'all') {
+        const hasIssueType = file.issues.some(i => i.type === filterIssueType);
+        if (!hasIssueType) return false;
+      }
+
+      // Filter by artist
+      if (filterArtist && file.metadata.artist !== filterArtist) return false;
+
+      // Filter by genre
+      if (filterGenre && file.metadata.genre !== filterGenre) return false;
+
+      return true;
+    });
+  }, [files, filterIssuesOnly, filterArtist, filterGenre, filterIssueType]);
+
+  // Early return after all hooks
   if (files.length === 0) {
     return (
       <Alert>
@@ -56,43 +94,6 @@ export const MusicFilesList: React.FC<MusicFilesListProps> = ({
   };
 
   const isFileSelected = (filePath: string) => selectedFiles.includes(filePath);
-
-  // Get unique artists and genres for filter dropdowns
-  const uniqueArtists = useMemo(() => {
-    const artists = files
-      .map(f => f.metadata.artist)
-      .filter((a): a is string => Boolean(a));
-    return Array.from(new Set(artists)).sort();
-  }, [files]);
-
-  const uniqueGenres = useMemo(() => {
-    const genres = files
-      .map(f => f.metadata.genre)
-      .filter((g): g is string => Boolean(g));
-    return Array.from(new Set(genres)).sort();
-  }, [files]);
-
-  // Filter files based on current filter settings
-  const filteredFiles = useMemo(() => {
-    return files.filter(file => {
-      // Filter by issues
-      if (filterIssuesOnly && file.issues.length === 0) return false;
-
-      // Filter by issue type
-      if (filterIssueType !== 'all') {
-        const hasIssueType = file.issues.some(i => i.type === filterIssueType);
-        if (!hasIssueType) return false;
-      }
-
-      // Filter by artist
-      if (filterArtist && file.metadata.artist !== filterArtist) return false;
-
-      // Filter by genre
-      if (filterGenre && file.metadata.genre !== filterGenre) return false;
-
-      return true;
-    });
-  }, [files, filterIssuesOnly, filterArtist, filterGenre, filterIssueType]);
 
   const clearFilters = () => {
     setFilterIssuesOnly(false);
