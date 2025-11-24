@@ -90,12 +90,22 @@ export const LibraryScanner: React.FC<LibraryScannerProps> = ({
         {scanning ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-600">Escaneando archivos...</span>
+              <span className="text-slate-600">
+                {scanProgress.total > 0 ? 'Procesando metadata...' : 'Escaneando archivos...'}
+              </span>
               <span className="font-medium">
-                {scanProgress.current} archivos encontrados
+                {scanProgress.total > 0
+                  ? `${scanProgress.current} / ${scanProgress.total} procesados`
+                  : `${scanProgress.current} encontrados`
+                }
               </span>
             </div>
             <Progress value={progressPercentage} />
+            {scanProgress.total > 0 && (
+              <p className="text-xs text-slate-500">
+                {Math.round(progressPercentage)}% completado - Esto puede tomar unos minutos para bibliotecas grandes
+              </p>
+            )}
           </div>
         ) : (
           <Button onClick={handleScan} className="w-full" disabled={!inputPath}>

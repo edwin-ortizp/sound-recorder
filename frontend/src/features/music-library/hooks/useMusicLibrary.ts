@@ -84,7 +84,7 @@ export const useMusicLibrary = () => {
     saveConfig({ lastDirectoryName: path });
   }, [saveConfig]);
 
-  // Scan directory for MP3 files
+  // Scan directory for MP3 files (with progressive loading)
   const scanLibrary = useCallback(async () => {
     if (!directoryPath) {
       setError('Please enter a directory path');
@@ -97,16 +97,59 @@ export const useMusicLibrary = () => {
     setScanProgress({ current: 0, total: 0 });
 
     try {
-      // Call backend API to scan directory
-      const response = await api.scanDirectory(directoryPath, config.scanSubfolders);
+      // Strategy for large libraries (optimized for 20k+ files):
+      // 1. Quick scan to get total count and first batch quickly
+      // 2. Load metadata in batches to avoid blocking
 
-      // Convert API files to frontend format
-      const musicFiles = response.files.map(convertApiFile);
+      const BATCH_SIZE = 200; // Process 200 files at a time
+      let offset = 0;
+      let totalFiles = 0;
+      let allFiles: MusicFile[] = [];
+      let hasMore = true;
 
-      setFiles(musicFiles);
-      setScanProgress({ current: response.total, total: response.total });
+      // First request: Quick scan to get total and first batch
+      const firstResponse = await api.scanDirectory(
+        directoryPath,
+        config.scanSubfolders,
+        false, // Not quick mode for first batch - load metadata immediately
+        offset,
+        BATCH_SIZE
+      );
 
-      console.log(`Scanned ${response.total} files`);
+      totalFiles = firstResponse.total;
+      allFiles = firstResponse.files.map(convertApiFile);
+      hasMore = firstResponse.has_more;
+      offset += firstResponse.scanned;
+
+      // Update UI with first batch immediately
+      setFiles(allFiles);
+      setScanProgress({ current: allFiles.length, total: totalFiles });
+
+      console.log(`Found ${totalFiles} files. Loaded ${allFiles.length} initially.`);
+
+      // Load remaining batches progressively
+      while (hasMore) {
+        const response = await api.scanDirectory(
+          directoryPath,
+          config.scanSubfolders,
+          false,
+          offset,
+          BATCH_SIZE
+        );
+
+        const newFiles = response.files.map(convertApiFile);
+        allFiles = [...allFiles, ...newFiles];
+        hasMore = response.has_more;
+        offset += response.scanned;
+
+        // Update UI progressively
+        setFiles([...allFiles]);
+        setScanProgress({ current: allFiles.length, total: totalFiles });
+
+        console.log(`Progress: ${allFiles.length}/${totalFiles} files loaded`);
+      }
+
+      console.log(`Scan complete: ${allFiles.length} files`);
 
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to scan directory';

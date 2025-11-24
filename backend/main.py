@@ -20,6 +20,9 @@ from services.lyrics import lyrics_service
 class ScanRequest(BaseModel):
     path: str
     recursive: bool = True
+    quick: bool = False  # Quick scan: only list files, no metadata processing
+    offset: int = 0  # For pagination
+    limit: int = 100  # Max files to process at once
 
 
 class MusicFile(BaseModel):
@@ -36,6 +39,9 @@ class MusicFile(BaseModel):
 class ScanResponse(BaseModel):
     files: List[MusicFile]
     total: int
+    scanned: int  # Number of files scanned in this batch
+    offset: int  # Current offset
+    has_more: bool  # Whether there are more files to scan
 
 
 class UpdateMetadataRequest(BaseModel):
@@ -171,37 +177,75 @@ async def health_check():
 
 @app.post("/api/scan", response_model=ScanResponse)
 async def scan_directory_endpoint(request: ScanRequest):
-    """Scan directory for MP3 files and analyze them"""
+    """
+    Scan directory for MP3 files and analyze them (with pagination support)
+
+    For large libraries (20k+ files):
+    1. Use quick=True to only get file list without metadata (very fast)
+    2. Then use pagination (offset/limit) to load metadata in batches
+    """
     try:
         if not os.path.exists(request.path):
             raise HTTPException(status_code=404, detail="Directory not found")
 
-        mp3_files = scanner.scan_directory(request.path, request.recursive)
+        # Step 1: Scan all MP3 files (fast - just listing)
+        all_mp3_files = scanner.scan_directory(request.path, request.recursive)
+        total_files = len(all_mp3_files)
+
+        # Step 2: Apply pagination
+        start_idx = request.offset
+        end_idx = min(start_idx + request.limit, total_files)
+        files_to_process = all_mp3_files[start_idx:end_idx]
+        has_more = end_idx < total_files
+
         music_files = []
 
-        for filepath in mp3_files:
+        # Step 3: Process files in current batch
+        for filepath in files_to_process:
             try:
                 file_info = scanner.get_file_info(filepath)
-                file_metadata = metadata.read_metadata(filepath)
-                issues = naming.analyze_filename(file_info["filename"], file_metadata)
-                suggested = naming.get_suggested_name(file_info["filename"], file_metadata)
 
-                music_file = MusicFile(
-                    id=filepath,
-                    path=file_info["path"],
-                    filename=file_info["filename"],
-                    directory=file_info["directory"],
-                    size=file_info["size"],
-                    metadata=file_metadata,
-                    issues=issues,
-                    suggested_name=suggested
-                )
+                # Quick mode: skip metadata processing
+                if request.quick:
+                    music_file = MusicFile(
+                        id=filepath,
+                        path=file_info["path"],
+                        filename=file_info["filename"],
+                        directory=file_info["directory"],
+                        size=file_info["size"],
+                        metadata={},
+                        issues=[],
+                        suggested_name=None
+                    )
+                else:
+                    # Full mode: process metadata (slower)
+                    file_metadata = metadata.read_metadata(filepath)
+                    issues = naming.analyze_filename(file_info["filename"], file_metadata)
+                    suggested = naming.get_suggested_name(file_info["filename"], file_metadata)
+
+                    music_file = MusicFile(
+                        id=filepath,
+                        path=file_info["path"],
+                        filename=file_info["filename"],
+                        directory=file_info["directory"],
+                        size=file_info["size"],
+                        metadata=file_metadata,
+                        issues=issues,
+                        suggested_name=suggested
+                    )
+
                 music_files.append(music_file)
             except Exception as e:
                 print(f"Error processing {filepath}: {e}")
                 continue
 
-        return ScanResponse(files=music_files, total=len(music_files))
+        return ScanResponse(
+            files=music_files,
+            total=total_files,
+            scanned=len(music_files),
+            offset=start_idx,
+            has_more=has_more
+        )
 
     except HTTPException:
         raise

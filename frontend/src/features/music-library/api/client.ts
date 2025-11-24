@@ -30,6 +30,9 @@ export interface ApiMusicFile {
 export interface ScanResponse {
   files: ApiMusicFile[];
   total: number;
+  scanned: number;  // Number of files scanned in this batch
+  offset: number;   // Current offset
+  has_more: boolean; // Whether there are more files to scan
 }
 
 export interface LibraryStats {
@@ -39,18 +42,31 @@ export interface LibraryStats {
 }
 
 /**
- * Scan a directory for MP3 files
+ * Scan a directory for MP3 files (with pagination support)
+ *
+ * For large libraries (20k+ files):
+ * 1. Use quick=true to only get file list without metadata (very fast)
+ * 2. Then use pagination (offset/limit) to load metadata in batches
  */
 export const scanDirectory = async (
   path: string,
-  recursive: boolean = true
+  recursive: boolean = true,
+  quick: boolean = false,
+  offset: number = 0,
+  limit: number = 100
 ): Promise<ScanResponse> => {
   const response = await fetch(`${API_BASE_URL}/api/scan`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ path, recursive }),
+    body: JSON.stringify({
+      path,
+      recursive,
+      quick,
+      offset,
+      limit
+    }),
   });
 
   if (!response.ok) {
