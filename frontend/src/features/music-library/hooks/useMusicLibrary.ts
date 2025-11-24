@@ -184,23 +184,28 @@ export const useMusicLibrary = () => {
       // This triggers a single re-render instead of 30+ re-renders
       setFiles(allFiles);
 
-      // Save to IndexedDB cache
+      // Stop scanning state immediately so user can interact with UI
+      setScanning(false);
+
+      // Save to IndexedDB cache in background (non-blocking)
+      // This allows the UI to be responsive while caching happens
       const timestamp = Date.now();
-      try {
-        console.log('Saving to IndexedDB cache...');
-        await idb.saveFilesToCache(allFiles, directoryPath);
-        setScanTimestamp(timestamp);
-        console.log('✅ Library cached successfully in IndexedDB');
-      } catch (cacheError) {
-        console.warn('Failed to cache library in IndexedDB:', cacheError);
-        // Continue even if caching fails
-      }
+      console.log('Saving to IndexedDB cache in background...');
+
+      idb.saveFilesToCache(allFiles, directoryPath)
+        .then(() => {
+          setScanTimestamp(timestamp);
+          console.log('✅ Library cached successfully in IndexedDB');
+        })
+        .catch((cacheError) => {
+          console.warn('Failed to cache library in IndexedDB:', cacheError);
+          // Not critical - user can still use the app, will rescan next time
+        });
 
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to scan directory';
       setError(errorMsg);
       console.error('Error scanning library:', err);
-    } finally {
       setScanning(false);
     }
   }, [directoryPath, config.scanSubfolders]);
