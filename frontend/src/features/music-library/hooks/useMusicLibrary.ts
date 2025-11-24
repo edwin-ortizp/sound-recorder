@@ -148,13 +148,12 @@ export const useMusicLibrary = () => {
       hasMore = firstResponse.has_more;
       offset += firstResponse.scanned;
 
-      // Update UI with first batch immediately
-      setFiles(allFiles);
+      // Only update progress, NOT files array yet (to avoid expensive re-renders)
       setScanProgress({ current: allFiles.length, total: totalFiles });
 
-      console.log(`Found ${totalFiles} files. Loaded ${allFiles.length} initially.`);
+      console.log(`Found ${totalFiles} files. Loading all files before rendering...`);
 
-      // Load remaining batches progressively
+      // Load remaining batches - DON'T update files state yet
       while (hasMore) {
         const response = await api.scanDirectory(
           directoryPath,
@@ -169,14 +168,21 @@ export const useMusicLibrary = () => {
         hasMore = response.has_more;
         offset += response.scanned;
 
-        // Update UI progressively
-        setFiles([...allFiles]);
+        // Only update progress counter to show loading status
+        // This prevents expensive re-renders of filters/virtualized list during loading
         setScanProgress({ current: allFiles.length, total: totalFiles });
 
-        console.log(`Progress: ${allFiles.length}/${totalFiles} files loaded`);
+        // Log progress less frequently to reduce console spam
+        if (allFiles.length % 1000 === 0 || !hasMore) {
+          console.log(`Progress: ${allFiles.length}/${totalFiles} files loaded`);
+        }
       }
 
-      console.log(`Scan complete: ${allFiles.length} files`);
+      console.log(`Scan complete: ${allFiles.length} files. Rendering UI...`);
+
+      // NOW update files state - only once at the end
+      // This triggers a single re-render instead of 30+ re-renders
+      setFiles(allFiles);
 
       // Save to IndexedDB cache
       const timestamp = Date.now();
