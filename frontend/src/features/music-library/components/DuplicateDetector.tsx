@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Trash2, AlertCircle, CheckCircle, FileText, Loader2 } from 'lucide-react';
+import { Copy, Trash2, AlertCircle, CheckCircle, FileText, Loader2, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -21,6 +21,7 @@ export const DuplicateDetector: React.FC<DuplicateDetectorProps> = ({
   const [movingToTrash, setMovingToTrash] = useState(false);
   const [cleanupReport, setCleanupReport] = useState<DuplicateCleanupReport | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   const handleDetectDuplicates = async () => {
     if (!allFiles || allFiles.length === 0) {
@@ -72,13 +73,14 @@ export const DuplicateDetector: React.FC<DuplicateDetectorProps> = ({
     setSelectedDuplicates(new Set());
   };
 
-  const handleMoveToTrash = async () => {
+  const handleConfirmMoveToTrash = async () => {
     if (!duplicateResult || selectedDuplicates.size === 0) return;
 
     const selectedDuplicatesList = Array.from(selectedDuplicates).map(
       (idx) => duplicateResult.duplicates[idx]
     );
 
+    setShowConfirmDialog(false);
     setMovingToTrash(true);
     setError(null);
 
@@ -266,7 +268,7 @@ export const DuplicateDetector: React.FC<DuplicateDetectorProps> = ({
                 </div>
 
                 <Button
-                  onClick={handleMoveToTrash}
+                  onClick={() => setShowConfirmDialog(true)}
                   disabled={selectedDuplicates.size === 0 || movingToTrash}
                   variant="destructive"
                   className="w-full"
@@ -283,6 +285,71 @@ export const DuplicateDetector: React.FC<DuplicateDetectorProps> = ({
                     </>
                   )}
                 </Button>
+
+                {/* Confirmation Dialog */}
+                {showConfirmDialog && (
+                  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <Card className="max-w-lg w-full">
+                      <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-orange-600">
+                          <AlertTriangle className="h-5 w-5" />
+                          Confirmar Acción
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <Alert>
+                          <AlertTriangle className="h-4 w-4 text-orange-600" />
+                          <AlertDescription>
+                            <strong>¿Estás seguro de que deseas mover estos archivos a Trash?</strong>
+                          </AlertDescription>
+                        </Alert>
+
+                        <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                          <p className="text-sm">
+                            <strong>Archivos a mover:</strong> {selectedDuplicates.size} duplicado(s)
+                          </p>
+                          <p className="text-sm">
+                            <strong>Destino:</strong> {rootDirectory}/Trash
+                          </p>
+                          <p className="text-xs text-gray-600 mt-2">
+                            Los archivos se moverán a la carpeta Trash y se generará un reporte detallado.
+                            Podrás revisarlos antes de eliminarlos definitivamente.
+                          </p>
+                        </div>
+
+                        <div className="bg-blue-50 p-4 rounded-lg">
+                          <p className="text-sm font-medium text-blue-900 mb-2">
+                            ℹ️ Seguridad
+                          </p>
+                          <ul className="text-xs text-blue-800 space-y-1">
+                            <li>• Solo se moverán archivos de la carpeta raíz</li>
+                            <li>• Las subcarpetas organizadas NO se tocarán</li>
+                            <li>• Los archivos NO se eliminarán, solo se moverán a Trash</li>
+                            <li>• Podrás recuperarlos si es necesario</li>
+                          </ul>
+                        </div>
+
+                        <div className="flex gap-2">
+                          <Button
+                            onClick={() => setShowConfirmDialog(false)}
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            Cancelar
+                          </Button>
+                          <Button
+                            onClick={handleConfirmMoveToTrash}
+                            variant="destructive"
+                            className="flex-1"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Sí, mover a Trash
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
               </>
             ) : (
               <Alert>

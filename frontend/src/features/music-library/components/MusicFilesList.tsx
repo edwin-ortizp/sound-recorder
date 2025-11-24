@@ -1,5 +1,5 @@
-import React from 'react';
-import { Music, AlertTriangle, CheckCircle, FileMusic } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Music, AlertTriangle, CheckCircle, FileMusic, Filter } from 'lucide-react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,12 @@ export const MusicFilesList: React.FC<MusicFilesListProps> = ({
   onDeselectAll,
   multiSelectMode = false,
 }) => {
+  const [showFilters, setShowFilters] = useState(false);
+  const [filterIssuesOnly, setFilterIssuesOnly] = useState(false);
+  const [filterArtist, setFilterArtist] = useState('');
+  const [filterGenre, setFilterGenre] = useState('');
+  const [filterIssueType, setFilterIssueType] = useState('all');
+
   if (files.length === 0) {
     return (
       <Alert>
@@ -41,32 +47,178 @@ export const MusicFilesList: React.FC<MusicFilesListProps> = ({
     return `${mb.toFixed(2)} MB`;
   };
 
-  const formatDuration = (seconds?: number): string => {
+  const formatDuration = (seconds?: number | string): string => {
     if (!seconds) return '—';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
+    const secondsNum = typeof seconds === 'string' ? parseFloat(seconds) : seconds;
+    const mins = Math.floor(secondsNum / 60);
+    const secs = Math.floor(secondsNum % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const isFileSelected = (filePath: string) => selectedFiles.includes(filePath);
 
+  // Get unique artists and genres for filter dropdowns
+  const uniqueArtists = useMemo(() => {
+    const artists = files
+      .map(f => f.metadata.artist)
+      .filter((a): a is string => Boolean(a));
+    return Array.from(new Set(artists)).sort();
+  }, [files]);
+
+  const uniqueGenres = useMemo(() => {
+    const genres = files
+      .map(f => f.metadata.genre)
+      .filter((g): g is string => Boolean(g));
+    return Array.from(new Set(genres)).sort();
+  }, [files]);
+
+  // Filter files based on current filter settings
+  const filteredFiles = useMemo(() => {
+    return files.filter(file => {
+      // Filter by issues
+      if (filterIssuesOnly && file.issues.length === 0) return false;
+
+      // Filter by issue type
+      if (filterIssueType !== 'all') {
+        const hasIssueType = file.issues.some(i => i.type === filterIssueType);
+        if (!hasIssueType) return false;
+      }
+
+      // Filter by artist
+      if (filterArtist && file.metadata.artist !== filterArtist) return false;
+
+      // Filter by genre
+      if (filterGenre && file.metadata.genre !== filterGenre) return false;
+
+      return true;
+    });
+  }, [files, filterIssuesOnly, filterArtist, filterGenre, filterIssueType]);
+
+  const clearFilters = () => {
+    setFilterIssuesOnly(false);
+    setFilterArtist('');
+    setFilterGenre('');
+    setFilterIssueType('all');
+  };
+
+  const activeFiltersCount = [
+    filterIssuesOnly,
+    filterArtist,
+    filterGenre,
+    filterIssueType !== 'all'
+  ].filter(Boolean).length;
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span className="flex items-center gap-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
             <FileMusic className="h-5 w-5" />
             Archivos Encontrados
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setShowFilters(!showFilters)}
+              variant={showFilters ? "default" : "outline"}
+              size="sm"
+            >
+              <Filter className="h-4 w-4 mr-1" />
+              Filtros {activeFiltersCount > 0 && `(${activeFiltersCount})`}
+            </Button>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 text-sm text-slate-600">
+          <span>
+            {filteredFiles.length} de {files.length} archivos
           </span>
-          <span className="text-sm font-normal text-slate-600">
-            {files.length} archivos
-            {multiSelectMode && selectedFiles.length > 0 && (
-              <span className="ml-2 text-blue-600">
-                ({selectedFiles.length} seleccionados)
-              </span>
-            )}
-          </span>
-        </CardTitle>
+          {multiSelectMode && selectedFiles.length > 0 && (
+            <span className="text-blue-600">
+              ({selectedFiles.length} seleccionados)
+            </span>
+          )}
+        </div>
+
+        {showFilters && (
+          <div className="mt-4 p-4 bg-slate-50 rounded-lg space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Filter by artist */}
+              <div>
+                <label className="text-xs font-medium text-slate-700 mb-1 block">
+                  Artista
+                </label>
+                <select
+                  value={filterArtist}
+                  onChange={(e) => setFilterArtist(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Todos los artistas</option>
+                  {uniqueArtists.map(artist => (
+                    <option key={artist} value={artist}>{artist}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filter by genre */}
+              <div>
+                <label className="text-xs font-medium text-slate-700 mb-1 block">
+                  Género
+                </label>
+                <select
+                  value={filterGenre}
+                  onChange={(e) => setFilterGenre(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Todos los géneros</option>
+                  {uniqueGenres.map(genre => (
+                    <option key={genre} value={genre}>{genre}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Filter by issue type */}
+              <div>
+                <label className="text-xs font-medium text-slate-700 mb-1 block">
+                  Tipo de problema
+                </label>
+                <select
+                  value={filterIssueType}
+                  onChange={(e) => setFilterIssueType(e.target.value)}
+                  className="w-full px-2 py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="all">Todos</option>
+                  <option value="no_artist">Sin artista</option>
+                  <option value="no_title">Sin título</option>
+                  <option value="no_standard">Formato no estándar</option>
+                  <option value="missing_metadata">Sin metadatos</option>
+                  <option value="invalid_chars">Caracteres inválidos</option>
+                </select>
+              </div>
+
+              {/* Filter issues only */}
+              <div className="flex items-center">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={filterIssuesOnly}
+                    onChange={(e) => setFilterIssuesOnly(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-slate-700">
+                    Solo archivos con problemas
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button onClick={clearFilters} variant="ghost" size="sm">
+                Limpiar filtros
+              </Button>
+            </div>
+          </div>
+        )}
+
         {multiSelectMode && (
           <div className="flex gap-2 mt-2">
             <Button onClick={onSelectAll} variant="outline" size="sm">
@@ -80,19 +232,27 @@ export const MusicFilesList: React.FC<MusicFilesListProps> = ({
       </CardHeader>
       <CardContent>
         <div className="space-y-2 max-h-[500px] overflow-y-auto">
-          {files.map(file => (
+          {filteredFiles.map(file => (
             <div
               key={file.id}
               className={`
                 p-3 rounded-lg border transition-colors
-                ${multiSelectMode ? 'cursor-default' : onFileSelect ? 'cursor-pointer hover:bg-slate-50' : ''}
+                ${multiSelectMode ? 'cursor-default' : onFileSelect ? 'cursor-pointer hover:bg-slate-50 hover:shadow-md' : ''}
                 ${isFileSelected(file.path) ? 'border-blue-500 bg-blue-50' :
                   file.issues.length > 0 ? 'border-orange-200 bg-orange-50' : 'border-slate-200'}
               `}
+              onClick={() => {
+                if (!multiSelectMode && onFileSelect) {
+                  onFileSelect(file);
+                }
+              }}
             >
               <div className="flex items-start gap-3">
                 {multiSelectMode && onToggleFileSelection && (
-                  <div className="flex-shrink-0 mt-1">
+                  <div
+                    className="flex-shrink-0 mt-1"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <input
                       type="checkbox"
                       checked={isFileSelected(file.path)}
@@ -102,10 +262,7 @@ export const MusicFilesList: React.FC<MusicFilesListProps> = ({
                   </div>
                 )}
 
-                <div
-                  className="flex-shrink-0 mt-1 cursor-pointer"
-                  onClick={() => !multiSelectMode && onFileSelect?.(file)}
-                >
+                <div className="flex-shrink-0 mt-1">
                   {file.issues.length > 0 ? (
                     <AlertTriangle className="h-5 w-5 text-orange-500" />
                   ) : (

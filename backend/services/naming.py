@@ -30,6 +30,7 @@ def to_title_case(text: str) -> str:
 def sanitize_filename(name: str) -> str:
     """
     Remove invalid characters and normalize spacing
+    Preserves apostrophes and other valid punctuation
 
     Args:
         name: Filename or part of filename
@@ -37,7 +38,7 @@ def sanitize_filename(name: str) -> str:
     Returns:
         Sanitized string
     """
-    # Remove invalid characters
+    # Remove invalid characters (but keep apostrophes, commas, periods, etc.)
     sanitized = INVALID_CHARS.sub('', name)
 
     # Normalize spaces
@@ -49,6 +50,7 @@ def sanitize_filename(name: str) -> str:
 def generate_standard_name(artist: Optional[str], title: Optional[str]) -> Optional[str]:
     """
     Generate standardized filename from artist and title
+    PRESERVES original capitalization (no forced Title Case)
 
     Args:
         artist: Artist name
@@ -60,8 +62,9 @@ def generate_standard_name(artist: Optional[str], title: Optional[str]) -> Optio
     if not artist or not title:
         return None
 
-    artist_clean = sanitize_filename(to_title_case(artist))
-    title_clean = sanitize_filename(to_title_case(title))
+    # Just sanitize, don't change capitalization
+    artist_clean = sanitize_filename(artist)
+    title_clean = sanitize_filename(title)
 
     return f"{artist_clean} - {title_clean}.mp3"
 
@@ -97,12 +100,32 @@ def extract_artist_and_title(filename: str) -> Tuple[Optional[str], Optional[str
     return None, None
 
 
+def normalize_for_comparison(text: str) -> str:
+    """
+    Normalize text for flexible comparison
+    - Lowercase
+    - Remove extra spaces
+    - Remove certain punctuation variations
+
+    Args:
+        text: Text to normalize
+
+    Returns:
+        Normalized text
+    """
+    normalized = text.lower().strip()
+    # Normalize multiple spaces to single space
+    normalized = re.sub(r'\s+', ' ', normalized)
+    return normalized
+
+
 def analyze_filename(
     filename: str,
     metadata: Dict[str, Optional[str]]
 ) -> List[Dict[str, str]]:
     """
     Analyze filename and metadata for issues
+    Uses FLEXIBLE comparison to avoid false positives
 
     Args:
         filename: Filename to analyze
@@ -131,15 +154,32 @@ def analyze_filename(
             "description": "Falta el título de la canción en los metadatos"
         })
 
-    # Check if file has metadata but name doesn't match standard
+    # Check if file has metadata but name doesn't match standard (FLEXIBLE comparison)
     if artist and title:
         expected_name = generate_standard_name(artist, title)
-        if expected_name and filename != expected_name:
-            issues.append({
-                "type": "no_standard",
-                "severity": "medium",
-                "description": "El nombre no sigue el formato estándar 'Artista - Título.mp3'"
-            })
+        if expected_name:
+            # Flexible comparison: normalize both names
+            filename_normalized = normalize_for_comparison(filename)
+            expected_normalized = normalize_for_comparison(expected_name)
+
+            # Only flag if they're significantly different
+            # Allow for minor variations in spacing, capitalization, etc.
+            if filename_normalized != expected_normalized:
+                # Additional check: does the filename at least contain artist and title?
+                filename_lower = filename.lower()
+                artist_lower = artist.lower()
+                title_lower = title.lower()
+
+                # If filename contains both artist and title, it's probably OK
+                if artist_lower in filename_lower and title_lower in filename_lower:
+                    # It's close enough, don't flag it
+                    pass
+                else:
+                    issues.append({
+                        "type": "no_standard",
+                        "severity": "low",  # Reduced severity
+                        "description": "El nombre no sigue el formato estándar 'Artista - Título.mp3'"
+                    })
 
     # Check for invalid characters
     if INVALID_CHARS.search(filename):
