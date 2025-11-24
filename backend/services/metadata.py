@@ -29,6 +29,9 @@ def read_metadata(filepath: str) -> Dict[str, Optional[str]]:
         mp3 = MP3(filepath)
         duration = mp3.info.length if mp3.info else None
 
+        # Convert duration to string for consistent typing
+        duration_str = str(round(duration, 2)) if duration else None
+
         return {
             "artist": audio.get("artist", [None])[0],
             "title": audio.get("title", [None])[0],
@@ -36,7 +39,7 @@ def read_metadata(filepath: str) -> Dict[str, Optional[str]]:
             "year": audio.get("date", [None])[0],
             "genre": audio.get("genre", [None])[0],
             "albumartist": audio.get("albumartist", [None])[0],
-            "duration": duration,
+            "duration": duration_str,
         }
     except ID3NoHeaderError:
         # File has no ID3 tags
