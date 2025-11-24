@@ -11,6 +11,8 @@ const DEFAULT_CONFIG: LibraryConfig = {
 };
 
 const CONFIG_KEY = 'music-library-config';
+const FILES_CACHE_KEY = 'music-library-files-cache';
+const SCAN_TIMESTAMP_KEY = 'music-library-scan-timestamp';
 
 // Convert API response to frontend MusicFile type
 const convertApiFile = (apiFile: ApiMusicFile): MusicFile => {
@@ -42,6 +44,7 @@ export const useMusicLibrary = () => {
   const [config, setConfig] = useState<LibraryConfig>(DEFAULT_CONFIG);
   const [error, setError] = useState<string | null>(null);
   const [apiHealthy, setApiHealthy] = useState<boolean>(true);
+  const [scanTimestamp, setScanTimestamp] = useState<number | null>(null);
 
   // Check API health on mount
   useEffect(() => {
@@ -68,6 +71,31 @@ export const useMusicLibrary = () => {
       } catch (error) {
         console.error('Error loading config:', error);
       }
+    }
+  }, []);
+
+  // Load cached files from localStorage on mount
+  useEffect(() => {
+    try {
+      const cachedFiles = localStorage.getItem(FILES_CACHE_KEY);
+      const cachedTimestamp = localStorage.getItem(SCAN_TIMESTAMP_KEY);
+
+      if (cachedFiles && cachedTimestamp) {
+        const parsedFiles = JSON.parse(cachedFiles);
+        const timestamp = parseInt(cachedTimestamp);
+
+        if (Array.isArray(parsedFiles) && parsedFiles.length > 0) {
+          setFiles(parsedFiles);
+          setScanTimestamp(timestamp);
+          setScanProgress({ current: parsedFiles.length, total: parsedFiles.length });
+          console.log(`Loaded ${parsedFiles.length} files from cache (scanned ${new Date(timestamp).toLocaleString()})`);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading cached files:', error);
+      // Clear corrupted cache
+      localStorage.removeItem(FILES_CACHE_KEY);
+      localStorage.removeItem(SCAN_TIMESTAMP_KEY);
     }
   }, []);
 
@@ -151,6 +179,18 @@ export const useMusicLibrary = () => {
 
       console.log(`Scan complete: ${allFiles.length} files`);
 
+      // Save to cache
+      const timestamp = Date.now();
+      try {
+        localStorage.setItem(FILES_CACHE_KEY, JSON.stringify(allFiles));
+        localStorage.setItem(SCAN_TIMESTAMP_KEY, timestamp.toString());
+        setScanTimestamp(timestamp);
+        console.log('Library cached successfully');
+      } catch (cacheError) {
+        console.warn('Failed to cache library (localStorage full?):', cacheError);
+        // Continue even if caching fails
+      }
+
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Failed to scan directory';
       setError(errorMsg);
@@ -187,24 +227,31 @@ export const useMusicLibrary = () => {
 
       if (response.success) {
         // Update local state
-        setFiles(prevFiles =>
-          prevFiles.map(f => {
-            if (f.id === fileId) {
-              const updatedMetadata = {
-                ...f.metadata,
-                ...newMetadata,
-              };
+        const updatedFiles = files.map(f => {
+          if (f.id === fileId) {
+            const updatedMetadata = {
+              ...f.metadata,
+              ...newMetadata,
+            };
 
-              return {
-                ...f,
-                metadata: updatedMetadata,
-                // Note: issues and suggestedName would need to be recalculated
-                // or fetched from backend
-              };
-            }
-            return f;
-          })
-        );
+            return {
+              ...f,
+              metadata: updatedMetadata,
+              // Note: issues and suggestedName would need to be recalculated
+              // or fetched from backend
+            };
+          }
+          return f;
+        });
+
+        setFiles(updatedFiles);
+
+        // Update cache
+        try {
+          localStorage.setItem(FILES_CACHE_KEY, JSON.stringify(updatedFiles));
+        } catch (e) {
+          console.warn('Failed to update cache after metadata update:', e);
+        }
 
         console.log('Metadata updated successfully');
       }
@@ -231,18 +278,25 @@ export const useMusicLibrary = () => {
 
       if (response.success) {
         // Update local state with new path
-        setFiles(prevFiles =>
-          prevFiles.map(f => {
-            if (f.id === fileId) {
-              return {
-                ...f,
-                path: response.new_path,
-                fileName: newName,
-              };
-            }
-            return f;
-          })
-        );
+        const updatedFiles = files.map(f => {
+          if (f.id === fileId) {
+            return {
+              ...f,
+              path: response.new_path,
+              fileName: newName,
+            };
+          }
+          return f;
+        });
+
+        setFiles(updatedFiles);
+
+        // Update cache
+        try {
+          localStorage.setItem(FILES_CACHE_KEY, JSON.stringify(updatedFiles));
+        } catch (e) {
+          console.warn('Failed to update cache after rename:', e);
+        }
 
         console.log('File renamed successfully');
         return true;
@@ -256,11 +310,16 @@ export const useMusicLibrary = () => {
     }
   }, [files]);
 
-  // Clear library
+  // Clear library and cache
   const clearLibrary = useCallback(() => {
     setFiles([]);
     setScanProgress({ current: 0, total: 0 });
     setError(null);
+    setScanTimestamp(null);
+
+    // Clear cache
+    localStorage.removeItem(FILES_CACHE_KEY);
+    localStorage.removeItem(SCAN_TIMESTAMP_KEY);
   }, []);
 
   return {
@@ -273,6 +332,7 @@ export const useMusicLibrary = () => {
     config,
     error,
     apiHealthy,
+    scanTimestamp,
     setDirectory,
     openDirectory: () => Promise.resolve(false), // Not used with backend
     scanLibrary,

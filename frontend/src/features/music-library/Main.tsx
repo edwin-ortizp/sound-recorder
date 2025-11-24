@@ -19,6 +19,7 @@ const MusicLibrary: React.FC = () => {
     scanning,
     scanProgress,
     error,
+    scanTimestamp,
     setDirectory,
     scanLibrary,
     updateFileMetadata,
@@ -69,6 +70,7 @@ const MusicLibrary: React.FC = () => {
             scanning={scanning}
             scanProgress={scanProgress}
             error={error}
+            scanTimestamp={scanTimestamp}
             onSetDirectory={setDirectory}
             onScanLibrary={scanLibrary}
           />

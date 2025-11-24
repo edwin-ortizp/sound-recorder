@@ -11,6 +11,7 @@ interface LibraryScannerProps {
   scanning: boolean;
   scanProgress: { current: number; total: number };
   error: string | null;
+  scanTimestamp: number | null;
   onSetDirectory: (path: string) => void;
   onScanLibrary: () => void;
 }
@@ -21,6 +22,7 @@ export const LibraryScanner: React.FC<LibraryScannerProps> = ({
   scanning,
   scanProgress,
   error,
+  scanTimestamp,
   onSetDirectory,
   onScanLibrary,
 }) => {
@@ -115,9 +117,17 @@ export const LibraryScanner: React.FC<LibraryScannerProps> = ({
         )}
 
         {directoryPath && !scanning && scanProgress.total > 0 && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-3 space-y-2">
             <p className="text-sm text-green-900">
               ✅ Escaneado completo: {scanProgress.total} archivos MP3 encontrados
+            </p>
+            {scanTimestamp && (
+              <p className="text-xs text-green-700">
+                📅 Última actualización: {new Date(scanTimestamp).toLocaleString()}
+              </p>
+            )}
+            <p className="text-xs text-slate-600">
+              💡 Los archivos se cargan automáticamente al abrir la aplicación. Haz clic en "Escanear Biblioteca" solo si necesitas actualizar la lista.
             </p>
           </div>
         )}
