@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import * as api from '../api/client';
 import type { ApiMusicFile } from '../api/client';
 import type { MusicFile, LibraryConfig, NamingIssue, MusicMetadata } from '../types';
+import * as idb from '../utils/indexedDB';
 
 const DEFAULT_CONFIG: LibraryConfig = {
   lastDirectoryName: '',
@@ -11,8 +12,6 @@ const DEFAULT_CONFIG: LibraryConfig = {
 };
 
 const CONFIG_KEY = 'music-library-config';
-const FILES_CACHE_KEY = 'music-library-files-cache';
-const SCAN_TIMESTAMP_KEY = 'music-library-scan-timestamp';
 
 // Convert API response to frontend MusicFile type
 const convertApiFile = (apiFile: ApiMusicFile): MusicFile => {
@@ -74,29 +73,29 @@ export const useMusicLibrary = () => {
     }
   }, []);
 
-  // Load cached files from localStorage on mount
+  // Load cached files from IndexedDB on mount
   useEffect(() => {
-    try {
-      const cachedFiles = localStorage.getItem(FILES_CACHE_KEY);
-      const cachedTimestamp = localStorage.getItem(SCAN_TIMESTAMP_KEY);
+    const loadCache = async () => {
+      try {
+        console.log('Loading files from IndexedDB cache...');
+        const cache = await idb.loadFilesFromCache();
 
-      if (cachedFiles && cachedTimestamp) {
-        const parsedFiles = JSON.parse(cachedFiles);
-        const timestamp = parseInt(cachedTimestamp);
-
-        if (Array.isArray(parsedFiles) && parsedFiles.length > 0) {
-          setFiles(parsedFiles);
-          setScanTimestamp(timestamp);
-          setScanProgress({ current: parsedFiles.length, total: parsedFiles.length });
-          console.log(`Loaded ${parsedFiles.length} files from cache (scanned ${new Date(timestamp).toLocaleString()})`);
+        if (cache && cache.files.length > 0 && cache.metadata) {
+          setFiles(cache.files);
+          setScanTimestamp(cache.metadata.scanTimestamp);
+          setScanProgress({ current: cache.files.length, total: cache.files.length });
+          console.log(`✅ Loaded ${cache.files.length} files from IndexedDB cache (scanned ${new Date(cache.metadata.scanTimestamp).toLocaleString()})`);
+        } else {
+          console.log('No cached files found');
         }
+      } catch (error) {
+        console.error('Error loading cached files:', error);
+        // Clear corrupted cache
+        await idb.clearCache();
       }
-    } catch (error) {
-      console.error('Error loading cached files:', error);
-      // Clear corrupted cache
-      localStorage.removeItem(FILES_CACHE_KEY);
-      localStorage.removeItem(SCAN_TIMESTAMP_KEY);
-    }
+    };
+
+    loadCache();
   }, []);
 
   // Save config to localStorage
@@ -179,15 +178,15 @@ export const useMusicLibrary = () => {
 
       console.log(`Scan complete: ${allFiles.length} files`);
 
-      // Save to cache
+      // Save to IndexedDB cache
       const timestamp = Date.now();
       try {
-        localStorage.setItem(FILES_CACHE_KEY, JSON.stringify(allFiles));
-        localStorage.setItem(SCAN_TIMESTAMP_KEY, timestamp.toString());
+        console.log('Saving to IndexedDB cache...');
+        await idb.saveFilesToCache(allFiles, directoryPath);
         setScanTimestamp(timestamp);
-        console.log('Library cached successfully');
+        console.log('✅ Library cached successfully in IndexedDB');
       } catch (cacheError) {
-        console.warn('Failed to cache library (localStorage full?):', cacheError);
+        console.warn('Failed to cache library in IndexedDB:', cacheError);
         // Continue even if caching fails
       }
 
@@ -246,9 +245,12 @@ export const useMusicLibrary = () => {
 
         setFiles(updatedFiles);
 
-        // Update cache
+        // Update cache in IndexedDB
         try {
-          localStorage.setItem(FILES_CACHE_KEY, JSON.stringify(updatedFiles));
+          const updatedFile = updatedFiles.find(f => f.id === fileId);
+          if (updatedFile) {
+            await idb.updateFileInCache(updatedFile);
+          }
         } catch (e) {
           console.warn('Failed to update cache after metadata update:', e);
         }
@@ -291,9 +293,12 @@ export const useMusicLibrary = () => {
 
         setFiles(updatedFiles);
 
-        // Update cache
+        // Update cache in IndexedDB
         try {
-          localStorage.setItem(FILES_CACHE_KEY, JSON.stringify(updatedFiles));
+          const updatedFile = updatedFiles.find(f => f.id === fileId);
+          if (updatedFile) {
+            await idb.updateFileInCache(updatedFile);
+          }
         } catch (e) {
           console.warn('Failed to update cache after rename:', e);
         }
@@ -311,15 +316,19 @@ export const useMusicLibrary = () => {
   }, [files]);
 
   // Clear library and cache
-  const clearLibrary = useCallback(() => {
+  const clearLibrary = useCallback(async () => {
     setFiles([]);
     setScanProgress({ current: 0, total: 0 });
     setError(null);
     setScanTimestamp(null);
 
-    // Clear cache
-    localStorage.removeItem(FILES_CACHE_KEY);
-    localStorage.removeItem(SCAN_TIMESTAMP_KEY);
+    // Clear IndexedDB cache
+    try {
+      await idb.clearCache();
+      console.log('Cache cleared');
+    } catch (e) {
+      console.warn('Failed to clear cache:', e);
+    }
   }, []);
 
   return {
